@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Olympus AI - Smart Gym System</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+    <div class="sidebar" id="sidebar" style="display: none;">
+        <div class="logo">O<span>LYMPUS</span></div>
+        <nav>
+            <button onclick="showView('view-auth')"><i data-lucide="user"></i> Profilo Atleta</button>
+            <button onclick="showView('view-coach')"><i data-lucide="shield-check"></i> Coach Panel</button>
+            <button onclick="showView('view-tv')"><i data-lucide="monitor"></i> Live TV</button>
+            <button onclick="logout()" style="margin-top: auto; color: var(--danger);"><i data-lucide="log-out"></i> Esci</button>
+        </nav>
+    </div>
+
+    <main class="content">
+        
+        <section id="view-login" class="view active">
+            <div class="welcome-container">
+                <div class="glass-hero">
+                    <h1>OLYMPUS <span>AI</span></h1>
+                    <p>Sincronizza il tuo allenamento in un istante</p>
+                </div>
+
+                <div class="login-card-container glass">
+                    <div class="manual-section">
+                        <h3><i data-lucide="key-round"></i> Accesso Manuale</h3>
+                        <div class="input-group">
+                            <input type="text" id="atleta-id-input" placeholder="ID ATLETA (es. ATL01)">
+                            <button class="btn-main" onclick="manualLogin()">ENTRA</button>
+                        </div>
+                    </div>
+
+                    <div class="separator"><span>OPPURE</span></div>
+
+                    <div class="qr-section">
+                        <h3><i data-lucide="qr-code"></i> Check-in Rapido</h3>
+                        <p class="hint">Attiva la camera e inquadra il tuo codice</p>
+                        <button class="btn-outline" id="start-scan-btn" onclick="initScanner()">
+                            <i data-lucide="camera"></i> ATTIVA SCANNER
+                        </button>
+                        <div id="reader" style="display:none; width: 100%; border-radius: 15px; margin-top: 15px;"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-auth" class="view">
+            <div class="header-flex">
+                <h1>Bentornato, <span id="user-display-name">Champion</span></h1>
+                <div class="status-badge">Online</div>
+            </div>
+
+            <div class="grid-3">
+                <div class="card glass text-center">
+                    <h3><i data-lucide="qr-code"></i> Il Tuo Pass QR</h3>
+                    <div id="my-qr-code" class="qr-placeholder"></div>
+                    <p style="font-size: 0.7rem; color: var(--dim); margin-top: 10px;">Mostra questo codice all'ingresso</p>
+                </div>
+
+                <div class="card glass">
+                    <h3><i data-lucide="zap"></i> Massimali AI</h3>
+                    <div class="metric">Squat: <span id="val-squat">0</span> kg</div>
+                    <div class="metric">Deadlift: <span id="val-dead">0</span> kg</div>
+                    <p style="font-size: 0.75rem; color: var(--primary); margin-top: 10px;">
+                        <i data-lucide="info" style="width:12px"></i> I massimali si aggiornano automaticamente in base alle tue performance in sala.
+                    </p>
+                </div>
+
+                <div class="card glass">
+                    <h3><i data-lucide="heart-pulse"></i> Salute & Bio</h3>
+                    <p id="health-status">Analisi in corso...</p>
+                    <div id="ai-diet-tip" class="ai-box">Consiglio AI caricato...</div>
+                </div>
+            </div>
+            
+            <div class="card glass" style="margin-top: 20px;">
+                <h3><i data-lucide="trending-up"></i> Performance Chart</h3>
+                <canvas id="performanceChart" style="max-height: 200px;"></canvas>
+            </div>
+        </section>
+
+        <section id="view-coach" class="view">
+            <h1>AI Strategy Control</h1>
+            <div class="grid-2">
+                <div class="card glass">
+                    <h3>Generatore Sessione Intelligente</h3>
+                    <textarea id="ai-prompt" placeholder="Descrivi l'allenamento al Coach AI..."></textarea>
+                    <div class="btn-group">
+                        <button class="btn-main" onclick="pushWorkout('Forza')">Avvia Forza</button>
+                        <button class="btn-main" onclick="pushWorkout('WOD')">Avvia WOD</button>
+                    </div>
+                </div>
+                <div class="card glass">
+                    <h3>Atleti in Sessione</h3>
+                    <div id="live-checkin-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-tv" class="view tv-mode">
+            <div id="tv-timer" class="glitch-text">00:00</div>
+            <div class="tv-info">
+                <h2 id="tv-phase-title">READY TO WORK</h2>
+                <p id="tv-phase-desc">In attesa del segnale del Coach</p>
+            </div>
+            <div id="tv-atleti-grid" class="atleta-grid"></div>
+        </section>
+
+    </main>
+
+    <script src="app.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>
