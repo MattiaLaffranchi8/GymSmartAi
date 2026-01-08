@@ -36,7 +36,7 @@ function showView(viewId) {
 }
 
 // Login Manuale
-window.manualLogin = function() {
+window.manualLogin = function () {
     const input = document.getElementById('atleta-id-input');
     if (input) {
         const id = input.value.trim().toUpperCase();
@@ -62,105 +62,123 @@ window.initScanner = function () {
 };
 
 function startScanning() {
-    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+    setTimeout(() => {
+        const config = { fps: 20, qrbox: { width: 250, height: 250 } };
 
-    html5QrCode.start(
-        { facingMode: currentCameraMode }, 
-        config,
-        (decodedText) => {
-            html5QrCode.stop().then(() => {
-                const readerElem = document.getElementById('reader');
-                const switchBtn = document.getElementById('switch-cam-btn');
-                if (readerElem) readerElem.style.display = 'none';
-                if (switchBtn) switchBtn.style.display = 'none';
-                processLogin(decodedText.trim().toUpperCase());
-            }).catch(err => console.error("Errore stop scanner:", err));
-        }
-    ).catch(err => {
-        console.error("Errore camera:", err);
-        alert("Impossibile avviare la fotocamera. Assicurati di aver concesso i permessi.");
-        document.getElementById('start-scan-btn').style.display = 'block';
-    });
-}
-
-window.switchCamera = function() {
-    if (html5QrCode) {
-        currentCameraMode = (currentCameraMode === "environment") ? "user" : "environment";
-        html5QrCode.stop().then(() => {
-            startScanning();
+        html5QrCode.start(
+            { facingMode: currentCameraMode },
+            config,
+            (decodedText) => {
+                console.log("Lettura riuscita!");
+                html5QrCode.stop().then(() => {
+                    const readerElem = document.getElementById('reader');
+                    const switchBtn = document.getElementById('switch-cam-btn');
+                    if (readerElem) readerElem.style.display = 'none';
+                    if (switchBtn) switchBtn.style.display = 'none';
+                    processLogin(decodedText.trim().toUpperCase());
+                }).catch(err => console.error("Errore stop scanner:", err));
+            }
+        ).catch(err => {
+            console.error("Errore camera:", err);
+            alert("Impossibile avviare la fotocamera. Assicurati di aver concesso i permessi.");
+            document.getElementById('start-scan-btn').style.display = 'block';
         });
-    }
-};
+    },300);
+}
+window.switchCamera = function () {
+            if (html5QrCode) {
+                currentCameraMode = (currentCameraMode === "environment") ? "user" : "environment";
+                html5QrCode.stop().then(() => {
+                    startScanning();
+                });
+            }
+        };
 
-// --- 3. PROCESSO LOGIN ---
-function processLogin(id) {
-    db.ref('atleti/' + id).once('value').then((snapshot) => {
+    // --- 3. PROCESSO LOGIN ---
+    function processLogin(id) {
+    console.log("Dato ricevuto dallo scanner:", id);
+    
+    // Pulizia ID: togliamo spazi extra che il QR potrebbe aver letto per errore
+    const cleanId = id.trim().toUpperCase();
+
+    db.ref('atleti/' + cleanId).once('value').then((snapshot) => {
         const data = snapshot.val();
+        
         if (data) {
-            currentUserID = id;
+            console.log("Atleta trovato:", data.nome);
+            currentUserID = cleanId;
             
+            // 1. Cambia subito la vista (così vedi che ha funzionato)
+            showView('view-auth');
+            
+            // 2. Aggiorna l'interfaccia
             const nameEl = document.getElementById('user-display-name');
             if (nameEl) nameEl.innerText = data.nome;
             
-            showView('view-auth');
-            generateUserQR(id);
+            // 3. Avvia le funzioni secondarie
+            generateUserQR(cleanId);
             syncProfile();
-            db.ref('live_session/' + id).set(data);
+            
+            // 4. Segna la presenza sulla TV
+            db.ref('live_session/' + cleanId).set(data);
         } else {
-            alert("Atleta non trovato: " + id);
-            // Invece di ricaricare subito, mostriamo di nuovo il tasto scan
+            console.warn("ID non trovato nel DB:", cleanId);
+            alert("Atleta non trovato: " + cleanId);
             document.getElementById('start-scan-btn').style.display = 'block';
         }
-    }).catch(err => console.error("Errore login:", err));
-}
-
-window.logout = function () {
-    if (currentUserID) db.ref('live_session/' + currentUserID).remove();
-    location.reload();
-};
-
-// --- 4. FUNZIONALITÀ SECONDARIE ---
-function generateUserQR(id) {
-    const container = document.getElementById('my-qr-code');
-    if (!container) return;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}&color=00f2ff&bgcolor=1a1a1a`;
-    container.innerHTML = `<img src="${qrUrl}" style="border: 2px solid #00f2ff; border-radius:10px;">`;
-}
-
-// --- 3. SINCRONIZZAZIONE DATI ---
-function syncProfile() {
-    if (!currentUserID) return;
-    db.ref('atleti/' + currentUserID).off();
-    db.ref('atleti/' + currentUserID).on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-
-        const elSquat = document.getElementById('val-squat');
-        const elDead = document.getElementById('val-dead');
-        const elHealth = document.getElementById('health-status');
-
-        if (elSquat) elSquat.innerText = data.massimali?.squat || 0;
-        if (elDead) elDead.innerText = data.massimali?.deadlift || 0;
-        if (elHealth) elHealth.innerText = `Status: ${data.salute || 'OK'}`;
+    }).catch(err => {
+        console.error("Errore critico durante il login:", err);
+        alert("Errore connessione database. Riprova.");
     });
 }
 
-// Inizializzazione Grafico
-window.addEventListener('load', () => {
-    const canvas = document.getElementById('performanceChart');
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['Sett 1', 'Sett 2', 'Sett 3', 'Sett 4'],
-                datasets: [{
-                    label: 'Massimali',
-                    data: [60, 65, 63, 70],
-                    borderColor: '#00f2ff',
-                    tension: 0.4
-                }]
-            }
+    window.logout = function () {
+        if (currentUserID) db.ref('live_session/' + currentUserID).remove();
+        location.reload();
+    };
+
+    // --- 4. FUNZIONALITÀ SECONDARIE ---
+    function generateUserQR(id) {
+        const container = document.getElementById('my-qr-code');
+        if (!container) return;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}&color=000000&bgcolor=ffffff`;
+        container.innerHTML = `<img src="${qrUrl}" style="border: 2px solid #00f2ff; border-radius:10px;">`;
+    }
+
+    // --- 3. SINCRONIZZAZIONE DATI ---
+    function syncProfile() {
+        if (!currentUserID) return;
+        db.ref('atleti/' + currentUserID).off();
+        db.ref('atleti/' + currentUserID).on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            const elSquat = document.getElementById('val-squat');
+            const elDead = document.getElementById('val-dead');
+            const elHealth = document.getElementById('health-status');
+
+            if (elSquat) elSquat.innerText = data.massimali?.squat || 0;
+            if (elDead) elDead.innerText = data.massimali?.deadlift || 0;
+            if (elHealth) elHealth.innerText = `Status: ${data.salute || 'OK'}`;
         });
     }
-});
+
+    // Inizializzazione Grafico
+    window.addEventListener('load', () => {
+        const canvas = document.getElementById('performanceChart');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Sett 1', 'Sett 2', 'Sett 3', 'Sett 4'],
+                    datasets: [{
+                        label: 'Massimali',
+                        data: [60, 65, 63, 70],
+                        borderColor: '#00f2ff',
+                        tension: 0.4
+                    }]
+                }
+            });
+        }
+    });
