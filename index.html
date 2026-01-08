@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="it">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
+
 <body>
 
     <div class="sidebar" id="sidebar" style="display: none;">
@@ -19,12 +21,13 @@
             <button onclick="showView('view-auth')"><i data-lucide="user"></i> Profilo Atleta</button>
             <button onclick="showView('view-coach')"><i data-lucide="shield-check"></i> Coach Panel</button>
             <button onclick="showView('view-tv')"><i data-lucide="monitor"></i> Live TV</button>
-            <button onclick="logout()" style="margin-top: auto; color: var(--danger);"><i data-lucide="log-out"></i> Esci</button>
+            <button onclick="logout()" style="margin-top: auto; color: var(--danger);"><i data-lucide="log-out"></i>
+                Esci</button>
         </nav>
     </div>
 
     <main class="content">
-        
+
         <section id="view-login" class="view active">
             <div class="welcome-container">
                 <div class="glass-hero">
@@ -49,7 +52,13 @@
                         <button class="btn-outline" id="start-scan-btn" onclick="initScanner()">
                             <i data-lucide="camera"></i> ATTIVA SCANNER
                         </button>
-                        <div id="reader" style="display:none; width: 100%; border-radius: 15px; margin-top: 15px;"></div>
+                        <div id="reader" style="display:none; width: 100%; border-radius: 15px; margin-top: 15px;">
+                        </div>
+
+                        <button id="switch-cam-btn" class="btn-outline" onclick="switchCamera()"
+                            style="display:none; margin-top: 10px; width: 100%;">
+                            <i data-lucide="refresh-cw"></i> CAMBIA FOTOCAMERA
+                        </button>
                     </div>
                 </div>
             </div>
@@ -65,7 +74,8 @@
                 <div class="card glass text-center">
                     <h3><i data-lucide="qr-code"></i> Il Tuo Pass QR</h3>
                     <div id="my-qr-code" class="qr-placeholder"></div>
-                    <p style="font-size: 0.7rem; color: var(--dim); margin-top: 10px;">Mostra questo codice all'ingresso</p>
+                    <p style="font-size: 0.7rem; color: var(--dim); margin-top: 10px;">Mostra questo codice all'ingresso
+                    </p>
                 </div>
 
                 <div class="card glass">
@@ -73,7 +83,8 @@
                     <div class="metric">Squat: <span id="val-squat">0</span> kg</div>
                     <div class="metric">Deadlift: <span id="val-dead">0</span> kg</div>
                     <p style="font-size: 0.75rem; color: var(--primary); margin-top: 10px;">
-                        <i data-lucide="info" style="width:12px"></i> I massimali si aggiornano automaticamente in base alle tue performance in sala.
+                        <i data-lucide="info" style="width:12px"></i> I massimali si aggiornano automaticamente in base
+                        alle tue performance in sala.
                     </p>
                 </div>
 
@@ -83,7 +94,7 @@
                     <div id="ai-diet-tip" class="ai-box">Consiglio AI caricato...</div>
                 </div>
             </div>
-            
+
             <div class="card glass" style="margin-top: 20px;">
                 <h3><i data-lucide="trending-up"></i> Performance Chart</h3>
                 <canvas id="performanceChart" style="max-height: 200px;"></canvas>
@@ -122,4 +133,5 @@
     <script src="app.js"></script>
     <script>lucide.createIcons();</script>
 </body>
+
 </html>

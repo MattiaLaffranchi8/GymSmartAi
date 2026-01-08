@@ -18,14 +18,15 @@ const db = firebase.database();
 
 let currentUserID = null;
 let html5QrCode = null;
+let currentCameraMode = "environment"; // Parte con la posteriore
 
 // --- 1. GESTIONE VISTE E ACCESSO ---
 
 function showView(viewId) {
     // Nascondi tutte le viste
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    // Mostra quella selezionata
-    document.getElementById(viewId).classList.add('active');
+    const target = document.getElementById(viewId);
+    if (target) target.classList.add('active');
 
     // Gestione Sidebar: mostrala solo se non siamo nel login
     const sidebar = document.getElementById('sidebar');
@@ -35,73 +36,82 @@ function showView(viewId) {
 }
 
 // Login Manuale
-function manualLogin() {
-    const id = document.getElementById('atleta-id-input').value.trim().toUpperCase();
-    if (id) processLogin(id);
-    else alert("Inserisci un ID Atleta valido");
+window.manualLogin = function() {
+    const input = document.getElementById('atleta-id-input');
+    if (input) {
+        const id = input.value.trim().toUpperCase();
+        if (id) processLogin(id);
+        else alert("Inserisci un ID Atleta valido");
+    }
 };
 
 // --- 2. LOGICA SCANNER (FOTOCAMERA POSTERIORE) ---
 window.initScanner = function () {
     const readerElem = document.getElementById('reader');
+    const switchBtn = document.getElementById('switch-cam-btn');
     const startBtn = document.getElementById('start-scan-btn');
 
     if (readerElem) readerElem.style.display = 'block';
+    if (switchBtn) switchBtn.style.display = 'block';
     if (startBtn) startBtn.style.display = 'none';
 
     if (!html5QrCode) {
         html5QrCode = new Html5Qrcode("reader");
     }
+    startScanning();
+};
 
+function startScanning() {
     const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
     html5QrCode.start(
-        { facingMode: "environment" },
+        { facingMode: currentCameraMode }, 
         config,
         (decodedText) => {
             html5QrCode.stop().then(() => {
+                const readerElem = document.getElementById('reader');
+                const switchBtn = document.getElementById('switch-cam-btn');
                 if (readerElem) readerElem.style.display = 'none';
+                if (switchBtn) switchBtn.style.display = 'none';
                 processLogin(decodedText.trim().toUpperCase());
             }).catch(err => console.error("Errore stop scanner:", err));
         }
     ).catch(err => {
-        alert("Errore fotocamera: " + err);
-        if (readerElem) readerElem.style.display = 'none';
-        if (startBtn) startBtn.style.display = 'block';
+        console.error("Errore camera:", err);
+        alert("Impossibile avviare la fotocamera. Assicurati di aver concesso i permessi.");
+        document.getElementById('start-scan-btn').style.display = 'block';
     });
+}
+
+window.switchCamera = function() {
+    if (html5QrCode) {
+        currentCameraMode = (currentCameraMode === "environment") ? "user" : "environment";
+        html5QrCode.stop().then(() => {
+            startScanning();
+        });
+    }
 };
 
-// --- 3. PROCESSO DI LOGIN ---
+// --- 3. PROCESSO LOGIN ---
 function processLogin(id) {
     db.ref('atleti/' + id).once('value').then((snapshot) => {
-        let data = snapshot.val();
-
-        // Se l'atleta non esiste, lo creiamo (per test) o diamo errore
-        if (!data) {
-            data = {
-                nome: "Atleta " + id,
-                massimali: { squat: 60, deadlift: 80 },
-                salute: "Ottima",
-                bio: "Creato da QR"
-            };
-            db.ref('atleti/' + id).set(data);
+        const data = snapshot.val();
+        if (data) {
+            currentUserID = id;
+            
+            const nameEl = document.getElementById('user-display-name');
+            if (nameEl) nameEl.innerText = data.nome;
+            
+            showView('view-auth');
+            generateUserQR(id);
+            syncProfile();
+            db.ref('live_session/' + id).set(data);
+        } else {
+            alert("Atleta non trovato: " + id);
+            // Invece di ricaricare subito, mostriamo di nuovo il tasto scan
+            document.getElementById('start-scan-btn').style.display = 'block';
         }
-
-        currentUserID = id;
-        document.getElementById('user-display-name').innerText = data.nome;
-
-        // Genera il QR personale per il futuro
-        generateUserQR(id);
-
-        // Sincronizza i dati e vai alla dashboard
-        syncProfile();
-        showView('view-auth');
-
-        // Segna presenza sulla TV
-        db.ref('live_session/' + id).set(data);
-    }).catch(err => {
-        console.error("Errore accesso database:", err);
-    });
+    }).catch(err => console.error("Errore login:", err));
 }
 
 window.logout = function () {
@@ -120,6 +130,7 @@ function generateUserQR(id) {
 // --- 3. SINCRONIZZAZIONE DATI ---
 function syncProfile() {
     if (!currentUserID) return;
+    db.ref('atleti/' + currentUserID).off();
     db.ref('atleti/' + currentUserID).on('value', (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
@@ -134,7 +145,7 @@ function syncProfile() {
     });
 }
 
-// Inizializzazione Grafico (solo se il canvas esiste)
+// Inizializzazione Grafico
 window.addEventListener('load', () => {
     const canvas = document.getElementById('performanceChart');
     if (canvas) {
