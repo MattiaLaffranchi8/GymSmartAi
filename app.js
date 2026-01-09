@@ -83,42 +83,42 @@ function startScanning() {
             alert("Impossibile avviare la fotocamera. Assicurati di aver concesso i permessi.");
             document.getElementById('start-scan-btn').style.display = 'block';
         });
-    },300);
+    }, 300);
 }
 window.switchCamera = function () {
-            if (html5QrCode) {
-                currentCameraMode = (currentCameraMode === "environment") ? "user" : "environment";
-                html5QrCode.stop().then(() => {
-                    startScanning();
-                });
-            }
-        };
+    if (html5QrCode) {
+        currentCameraMode = (currentCameraMode === "environment") ? "user" : "environment";
+        html5QrCode.stop().then(() => {
+            startScanning();
+        });
+    }
+};
 
-    // --- 3. PROCESSO LOGIN ---
-    function processLogin(id) {
+// --- 3. PROCESSO LOGIN ---
+function processLogin(id) {
     console.log("Dato ricevuto dallo scanner:", id);
-    
+
     // Pulizia ID: togliamo spazi extra che il QR potrebbe aver letto per errore
     const cleanId = id.trim().toUpperCase();
 
     db.ref('atleti/' + cleanId).once('value').then((snapshot) => {
         const data = snapshot.val();
-        
+
         if (data) {
             console.log("Atleta trovato:", data.nome);
             currentUserID = cleanId;
-            
+
             // 1. Cambia subito la vista (così vedi che ha funzionato)
             showView('view-auth');
-            
+
             // 2. Aggiorna l'interfaccia
             const nameEl = document.getElementById('user-display-name');
             if (nameEl) nameEl.innerText = data.nome;
-            
+
             // 3. Avvia le funzioni secondarie
             generateUserQR(cleanId);
             syncProfile();
-            
+
             // 4. Segna la presenza sulla TV
             db.ref('live_session/' + cleanId).set(data);
         } else {
@@ -132,53 +132,248 @@ window.switchCamera = function () {
     });
 }
 
-    window.logout = function () {
-        if (currentUserID) db.ref('live_session/' + currentUserID).remove();
-        location.reload();
-    };
+window.logout = function () {
+    if (currentUserID) db.ref('live_session/' + currentUserID).remove();
+    location.reload();
+};
 
-    // --- 4. FUNZIONALITÀ SECONDARIE ---
-    function generateUserQR(id) {
-        const container = document.getElementById('my-qr-code');
-        if (!container) return;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}&color=000000&bgcolor=ffffff`;
-        container.innerHTML = `<img src="${qrUrl}" style="border: 2px solid #00f2ff; border-radius:10px;">`;
+// --- 4. FUNZIONALITÀ SECONDARIE ---
+function generateUserQR(id) {
+    const container = document.getElementById('my-qr-code');
+    if (!container) return;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}&color=000000&bgcolor=ffffff`;
+    container.innerHTML = `<img src="${qrUrl}" style="border: 2px solid #00f2ff; border-radius:10px;">`;
+}
+
+// --- 3. SINCRONIZZAZIONE DATI ---
+function syncProfile() {
+    if (!currentUserID) return;
+    db.ref('atleti/' + currentUserID).off();
+    db.ref('atleti/' + currentUserID).on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        const elSquat = document.getElementById('val-squat');
+        const elDead = document.getElementById('val-dead');
+        const elHealth = document.getElementById('health-status');
+
+        if (elSquat) elSquat.innerText = data.massimali?.squat || 0;
+        if (elDead) elDead.innerText = data.massimali?.deadlift || 0;
+        if (elHealth) elHealth.innerText = `Status: ${data.salute || 'OK'}`;
+    });
+}
+
+// --- LOGICA COACH PANEL POTENZIATA ---
+window.pushWorkout = function (tipo) {
+    const prompt = document.getElementById('ai-prompt').value;
+
+    // Configurazione automatica in base al tipo
+    let duration = 0;
+    let title = "";
+    let intensity = 0;
+
+    switch (tipo) {
+        case 'Forza':
+            duration = 600; // 10 min
+            title = "PHASE: MAX STRENGTH";
+            intensity = 0.85; // 85% del massimale
+            break;
+        case 'WOD':
+            duration = 1200; // 20 min
+            title = "PHASE: METCON / WOD";
+            intensity = 0.60; // 60% del massimale (volume alto)
+            break;
+        case 'Recovery':
+            duration = 300; // 5 min
+            title = "PHASE: MOBILITY / RECOVERY";
+            intensity = 0.30; // 30% del massimale
+            break;
+        case 'Endurance':
+            duration = 1800; // 30 min
+            title = "PHASE: ENDURANCE";
+            intensity = 0.50; // 50% del massimale
+            break;
     }
 
-    // --- 3. SINCRONIZZAZIONE DATI ---
-    function syncProfile() {
-        if (!currentUserID) return;
-        db.ref('atleti/' + currentUserID).off();
-        db.ref('atleti/' + currentUserID).on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
+    const sessionData = {
+        tipo: tipo,
+        fase: title,
+        desc: prompt || "Seguire le istruzioni del Coach a schermo",
+        timer: duration,
+        intensity: intensity, // Inviamo la percentuale a tutti
+        timestamp: Date.now() // Serve per sincronizzare il timer su tutti i dispositivi
+    };
 
-            const elSquat = document.getElementById('val-squat');
-            const elDead = document.getElementById('val-dead');
-            const elHealth = document.getElementById('health-status');
+    // Invia i dati al database
+    db.ref('active_session').set(sessionData).then(() => {
+        alert("Sessione " + tipo + " inviata alla TV e agli Atleti!");
+    });
+};
 
-            if (elSquat) elSquat.innerText = data.massimali?.squat || 0;
-            if (elDead) elDead.innerText = data.massimali?.deadlift || 0;
-            if (elHealth) elHealth.innerText = `Status: ${data.salute || 'OK'}`;
+// --- LOGICA LIVE TV, TIMER E CONSIGLI AI ---
+let countdownInterval;
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playBeep(frequency, duration) {
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    oscillator.type = 'sine';
+    oscillator.frequency.value = frequency;
+    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + duration);
+}
+
+db.ref('active_session').on('value', snapshot => {
+    const data = snapshot.val();
+    if (!data) return;
+
+    // 1. Aggiorna Testi sulla TV (Fase e Descrizione)
+    const tvTitle = document.getElementById('tv-phase-title');
+    const tvDesc = document.getElementById('tv-phase-desc');
+    if (tvTitle) tvTitle.innerText = data.fase;
+    if (tvDesc) tvDesc.innerText = data.desc;
+
+    // 2. CALCOLO PESO PERSONALIZZATO (Per l'Atleta)
+    if (currentUserID && data.intensity) {
+        db.ref('atleti/' + currentUserID).once('value').then(userSnap => {
+            const userData = userSnap.val();
+            if (userData) {
+                const squatMax = userData.massimali?.squat || 0;
+                const targetWeight = Math.round(squatMax * data.intensity);
+                const aiBox = document.getElementById('ai-diet-tip');
+                if (aiBox) {
+                    aiBox.innerHTML = `
+                        <div style="border-left: 3px solid #00f2ff; padding-left: 10px;">
+                            <strong style="color: #00f2ff;">🎯 OBIETTIVO AI:</strong><br>
+                            Per questa sessione di <strong>${data.tipo}</strong>, 
+                            il tuo carico ideale è: 
+                            <span style="font-size: 1.2rem; display: block; margin-top: 5px;">
+                                ${targetWeight} kg (${Math.round(data.intensity * 100)}%)
+                            </span>
+                        </div>
+                    `;
+                }
+            }
         });
     }
 
-    // Inizializzazione Grafico
-    window.addEventListener('load', () => {
-        const canvas = document.getElementById('performanceChart');
-        if (canvas) {
-            const ctx = canvas.getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['Sett 1', 'Sett 2', 'Sett 3', 'Sett 4'],
-                    datasets: [{
-                        label: 'Massimali',
-                        data: [60, 65, 63, 70],
-                        borderColor: '#00f2ff',
-                        tension: 0.4
-                    }]
-                }
-            });
+    // 3. Gestione Timer Sincronizzato con Audio
+    clearInterval(countdownInterval);
+    let timeLeft = data.timer;
+
+    countdownInterval = setInterval(() => {
+        timeLeft--;
+
+        // Beep ultimi 3 secondi
+        if (timeLeft <= 3 && timeLeft > 0) playBeep(440, 0.1);
+
+        if (timeLeft <= 0) {
+            clearInterval(countdownInterval);
+            const timerEl = document.getElementById('tv-timer');
+            if (timerEl) timerEl.innerText = "00:00";
+            playBeep(880, 0.5); // Beep finale
+            return;
         }
-    });
+
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        const timeDisplay = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+        const timerEl = document.getElementById('tv-timer');
+        if (timerEl) timerEl.innerText = timeDisplay;
+    }, 1000);
+});
+
+
+db.ref('live_session').on('value', snapshot => {
+    const presenti = snapshot.val();
+    const listContainer = document.getElementById('live-checkin-list');
+
+    if (!listContainer) return;
+
+    listContainer.innerHTML = ""; // Pulisce la lista precedente
+
+    if (presenti) {
+        Object.keys(presenti).forEach(id => {
+            const atleta = presenti[id];
+            listContainer.innerHTML += ` 
+                <div class="atleta-row glass" style="margin-bottom: 10px; padding: 10px; border-left: 4px solid #00f2ff; display: flex; justify-content: space-between; align-items: center;"> 
+                    <div>
+                        <div style="font-weight: bold; color: white;">${atleta.nome}</div> 
+                        <div style="font-size: 0.8rem; color: #888;"> 
+                            Salute: <span style="color: ${atleta.salute === 'Ottima' ? '#00ff00' : '#ffcc00'}">${atleta.salute}</span> 
+                            | Squat Max: ${atleta.massimali?.squat || 0}kg 
+                        </div> 
+                    </div>
+                </div> `;
+        });
+    } else {
+        listContainer.innerHTML = "<p style='color: #666; font-size: 0.9rem;'>Nessun atleta in sessione</p>";
+    }
+});
+
+// Inizializzazione Grafico
+window.addEventListener('load', () => {
+    const canvas = document.getElementById('performanceChart');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Sett 1', 'Sett 2', 'Sett 3', 'Sett 4'],
+                datasets: [{
+                    label: 'Massimali',
+                    data: [60, 65, 63, 70],
+                    borderColor: '#00f2ff',
+                    tension: 0.4
+                }]
+            }
+        });
+    }
+});
+
+// --- LISTA ATLETI LIVE SULLA TV ---
+db.ref('live_session').on('value', snapshot => {
+    const atletiGrid = document.getElementById('tv-atleti-grid');
+    if (!atletiGrid) return;
+
+    const presenti = snapshot.val();
+    atletiGrid.innerHTML = ""; // Pulisce la griglia
+
+    if (presenti) {
+        Object.keys(presenti).forEach(id => {
+            const atleta = presenti[id];
+            // Crea un box per ogni atleta
+            atletiGrid.innerHTML += `
+                <div class="atleta-card glass pulse-border">
+                    <div class="atleta-name">${atleta.nome}</div>
+                    <div class="atleta-status">${atleta.salute === 'Ottima' ? '🔥 READY' : '⚠️ CAUTION'}</div>
+                </div>
+            `;
+        });
+    }
+});
+
+// --- FUNZIONE RESET SESSIONE ---
+window.resetGymSession = function() {
+    if (confirm("Sei sicuro di voler resettare la sessione? La TV e la lista atleti verranno svuotate.")) {
+        
+        // 1. Cancella la sessione attiva (Timer e Workout sulla TV)
+        db.ref('active_session').remove();
+
+        // 2. Cancella tutti gli atleti dalla live_session (Svuota la lista presenti)
+        db.ref('live_session').remove();
+
+        // 3. Opzionale: Ferma il timer locale se sta ancora girando
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+            const timerEl = document.getElementById('tv-timer');
+            if (timerEl) timerEl.innerText = "00:00";
+        }
+
+        alert("Sessione resettata con successo!");
+    }
+};

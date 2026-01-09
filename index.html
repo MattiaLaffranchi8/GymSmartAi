@@ -108,13 +108,25 @@
                     <h3>Generatore Sessione Intelligente</h3>
                     <textarea id="ai-prompt" placeholder="Descrivi l'allenamento al Coach AI..."></textarea>
                     <div class="btn-group">
-                        <button class="btn-main" onclick="pushWorkout('Forza')">Avvia Forza</button>
-                        <button class="btn-main" onclick="pushWorkout('WOD')">Avvia WOD</button>
+                        <button class="btn-main" onclick="pushWorkout('Forza')">FORZA</button>
+                        <button class="btn-main" onclick="pushWorkout('WOD')">WOD</button>
+                        <button class="btn-main" onclick="pushWorkout('Endurance')">ENDURANCE</button>
+                        <button class="btn-main" onclick="pushWorkout('Recovery')">RECOVERY</button>
                     </div>
                 </div>
                 <div class="card glass">
                     <h3>Atleti in Sessione</h3>
                     <div id="live-checkin-list"></div>
+                    <hr style="margin: 20px 0; border: 0; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <div style="text-align: center;">
+                        <button class="btn-main" onclick="resetGymSession()"
+                            style="background: #ff4444; color: white; width: 100%;">
+                            RESET TOTALE SESSIONE
+                        </button>
+                        <p style="font-size: 0.7rem; color: #888; margin-top: 10px;">
+                            (Svuota la TV, ferma il timer e disconnette gli atleti)
+                        </p>
+                    </div>
                 </div>
             </div>
         </section>
