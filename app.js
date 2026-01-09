@@ -35,6 +35,113 @@ function showView(viewId) {
     }
 }
 
+function updateRealTimeClock() {
+    const clockEl = document.getElementById('tv-real-clock');
+    if (!clockEl) return;
+
+    const ora = new Date();
+    const opzioni = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const dataString = ora.toLocaleDateString('it-IT', opzioni);
+    const orarioString = ora.toLocaleTimeString('it-IT', { hour12: false });
+
+    clockEl.innerHTML = `
+        <div style="font-size: 1.5rem; color: #00f2ff;">${dataString}</div>
+        <div style="font-size: 3.5rem; font-weight: bold; letter-spacing: 2px;">${orarioString}</div>
+    `;
+}
+setInterval(updateRealTimeClock, 1000);
+
+function generateAISmartWorkout(atletaData, sessioneTipo) {
+    const aiBox = document.getElementById('ai-diet-tip'); 
+    if (!aiBox) return;
+
+    // Parametri di calcolo
+    const squat = atletaData.massimali?.squat || 0;
+    const deadlift = atletaData.massimali?.deadlift || 0;
+    const ratio = squat / deadlift; // Rapporto di forza tra spinta e tirata
+    const livello = squat > 150 ? "AVANZATO" : "INTERMEDIO/BASE";
+
+    let consiglioLogico = "";
+    let esercizi = [];
+
+    // --- LOGICA DI INTELLIGENZA ARTIFICIALE ---
+    
+    // Caso 1: Recupero o Salute Bassa
+    if (atletaData.salute !== 'Ottima') {
+        consiglioLogico = "Focus sulla mobilità e recupero attivo per prevenire infortuni.";
+        esercizi = [
+            "Mobilità d'anca e caviglia (10 min)",
+            `Goblet Squat Tecnico: 3x12 con ${Math.round(squat * 0.4)}kg`,
+            "Core stability: Plank 4x45 secondi"
+        ];
+    } 
+    // Caso 2: Squat debole rispetto allo stacco (Squat < 70% dello Stacco)
+    else if (ratio < 0.7) {
+        consiglioLogico = "Rilevato squilibrio: focus prioritario sulla spinta delle gambe (Quadricipiti).";
+        esercizi = [
+            `Back Squat: 5x5 con ${Math.round(squat * 0.8)}kg (Focus profondità)`,
+            "Leg Press: 3x10 (Carico controllato)",
+            "Bulgarian Split Squat: 3x8 per gamba"
+        ];
+    }
+    // Caso 3: Atleta Avanzato in sessione Forza
+    else if (livello === "AVANZATO" && sessioneTipo === "Forza") {
+        consiglioLogico = "Atleta di alto livello: focus su picchi di potenza e attivazione neurale.";
+        esercizi = [
+            `Pause Squat: 4x3 con ${Math.round(squat * 0.85)}kg`,
+            `Stacco da terra: 3x2 con ${Math.round(deadlift * 0.9)}kg`,
+            "Salto sul box (Box Jump): 5x3 (Massima esplosività)"
+        ];
+    }
+    // Caso Standard
+    else {
+        consiglioLogico = `Sessione bilanciata per livello ${livello}.`;
+        esercizi = [
+            `Esercizio Base: 4x8 al 70% (${Math.round(squat * 0.7)}kg)`,
+            "Accessorio: 3x12 complementari",
+            "Condizionamento: 10 min cardio alta intensità"
+        ];
+    }
+
+    // --- RENDERING HTML ---
+    aiBox.innerHTML = `
+        <div class="ai-card-workout">
+            <h4 style="color: #00f2ff; margin-bottom: 10px;">🤖 AI COACH: ${sessioneTipo}</h4>
+            <p style="font-size: 0.85rem; font-style: italic; color: #bbb;">"${consiglioLogico}"</p>
+            <hr border="0" style="border-top: 1px solid #333; margin: 10px 0;">
+            <ul style="list-style: none; padding: 0; font-size: 0.95rem;">
+                ${esercizi.map(es => `<li style="margin-bottom: 8px;">✅ ${es}</li>`).join('')}
+            </ul>
+        </div>
+    `;
+}
+
+function startLiveClock() {
+    const clockContainer = document.getElementById('tv-real-clock');
+    if (!clockContainer) return;
+
+    setInterval(() => {
+        const ora = new Date();
+        const giorni = ['DOM', 'LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB'];
+        
+        const g = ora.getDate().toString().padStart(2, '0');
+        const m = (ora.getMonth() + 1).toString().padStart(2, '0');
+        const h = ora.getHours().toString().padStart(2, '0');
+        const min = ora.getMinutes().toString().padStart(2, '0');
+        const sec = ora.getSeconds().toString().padStart(2, '0');
+
+        clockContainer.innerHTML = `
+            <div style="font-family: monospace; display: flex; flex-direction: column; align-items: center;">
+                <div style="font-size: 1.2rem; color: #00f2ff;">${giorni[ora.getDay()]} ${g}/${m}/${ora.getFullYear()}</div>
+                <div style="font-size: 4rem; font-weight: 900; color: white;">${h}:${min}:${sec}</div>
+            </div>
+        `;
+    }, 1000);
+}
+// Avviala subito
+startLiveClock();
+
+
 // Login Manuale
 window.manualLogin = function () {
     const input = document.getElementById('atleta-id-input');
@@ -228,7 +335,7 @@ function playBeep(frequency, duration) {
 
 db.ref('active_session').on('value', snapshot => {
     const data = snapshot.val();
-    if (!data) return;
+    if (!data || !currentUserID) return;
 
     // 1. Aggiorna Testi sulla TV (Fase e Descrizione)
     const tvTitle = document.getElementById('tv-phase-title');
@@ -236,29 +343,37 @@ db.ref('active_session').on('value', snapshot => {
     if (tvTitle) tvTitle.innerText = data.fase;
     if (tvDesc) tvDesc.innerText = data.desc;
 
-    // 2. CALCOLO PESO PERSONALIZZATO (Per l'Atleta)
-    if (currentUserID && data.intensity) {
-        db.ref('atleti/' + currentUserID).once('value').then(userSnap => {
-            const userData = userSnap.val();
-            if (userData) {
-                const squatMax = userData.massimali?.squat || 0;
-                const targetWeight = Math.round(squatMax * data.intensity);
-                const aiBox = document.getElementById('ai-diet-tip');
-                if (aiBox) {
-                    aiBox.innerHTML = `
-                        <div style="border-left: 3px solid #00f2ff; padding-left: 10px;">
-                            <strong style="color: #00f2ff;">🎯 OBIETTIVO AI:</strong><br>
-                            Per questa sessione di <strong>${data.tipo}</strong>, 
-                            il tuo carico ideale è: 
-                            <span style="font-size: 1.2rem; display: block; margin-top: 5px;">
-                                ${targetWeight} kg (${Math.round(data.intensity * 100)}%)
-                            </span>
-                        </div>
-                    `;
-                }
+    // 2. Recupero Dati Atleta e Logica Personalizzata
+    db.ref('atleti/' + currentUserID).once('value').then(userSnap => {
+        const userData = userSnap.val();
+        if (!userData) return;
+
+        // --- CALCOLO PESO PERSONALIZZATO ---
+        if (data.intensity) {
+            const squatMax = userData.massimali?.squat || 0;
+            const targetWeight = Math.round(squatMax * data.intensity);
+            const aiBox = document.getElementById('ai-diet-tip');
+            if (aiBox) {
+                aiBox.innerHTML = `
+                    <div style="border-left: 3px solid #00f2ff; padding-left: 10px;">
+                        <strong style="color: #00f2ff;">🎯 OBIETTIVO AI:</strong><br>
+                        Per questa sessione di <strong>${data.tipo}</strong>, 
+                        il tuo carico ideale è: 
+                        <span style="font-size: 1.2rem; display: block; margin-top: 5px;">
+                            ${targetWeight} kg (${Math.round(data.intensity * 100)}%)
+                        </span>
+                    </div>
+                `;
             }
-        });
-    }
+        }
+
+        // --- GENERAZIONE AI SMART WORKOUT ---
+        // Chiamiamo la nuova intelligenza artificiale passando i dati utente e il tipo di sessione
+        if (typeof generateAISmartWorkout === "function") {
+            generateAISmartWorkout(userData, data.tipo);
+        }
+    });
+});
 
     // 3. Gestione Timer Sincronizzato con Audio
     clearInterval(countdownInterval);
