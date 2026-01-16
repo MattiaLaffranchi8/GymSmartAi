@@ -11,10 +11,28 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 
 <body>
-
+    <div id="legal-modal" class="modal-overlay">
+        <div class="modal-content glass">
+            <h2><i data-lucide="shield-alert"></i> Disclaimer Medico</h2>
+            <div class="legal-text">
+                <p><strong>IMPORTANTE:</strong> Olympus AI fornisce suggerimenti basati su algoritmi di intelligenza
+                    artificiale. Non è un sostituto del parere medico professionale, diagnosi o trattamento.</p>
+                <ul>
+                    <li>Consulta sempre un medico prima di iniziare un nuovo programma di allenamento.</li>
+                    <li>L'uso dell'applicazione implica l'accettazione che gli esercizi sono svolti a proprio rischio.
+                    </li>
+                    <li>Olympus AI e i suoi sviluppatori non sono responsabili per infortuni derivanti dall'esecuzione
+                        impropria degli esercizi.</li>
+                </ul>
+            </div>
+            <button class="btn-main" onclick="acceptLegal()">ACCETTO E PROCEDO</button>
+        </div>
+    </div>
     <div class="sidebar" id="sidebar" style="display: none;">
         <div class="logo">O<span>LYMPUS</span></div>
         <nav>
@@ -23,7 +41,35 @@
             <button onclick="showView('view-tv')"><i data-lucide="monitor"></i> Live TV</button>
             <button onclick="logout()" style="margin-top: auto; color: var(--danger);"><i data-lucide="log-out"></i>
                 Esci</button>
+
+            <div class="footer-legal"
+                style="padding: 15px; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 10px;">
+                <a href="https://www.iubenda.com/privacy-policy/81615516"
+                    class="iubenda-white iubenda-noiframe iubenda-embed iub-legal-only"
+                    style="font-size: 0.7rem; color: var(--dim); text-decoration: none; display: block; margin-bottom: 5px;">
+                    Privacy Policy
+                </a>
+                <a href="https://www.iubenda.com/terms-and-conditions/81615516"
+                    class="iubenda-white iubenda-noiframe iubenda-embed iub-legal-only"
+                    style="font-size: 0.7rem; color: var(--dim); text-decoration: none; display: block;">
+                    Termini e Condizioni
+                </a>
+            </div>
         </nav>
+        <div class="sidebar-footer"
+            style="padding: 20px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-size: 0.6rem; color: var(--primary); letter-spacing: 1px;">SYSTEM v1.0.2</span>
+                <div class="status-dot shadow-green"></div>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <a href="https://www.iubenda.com/privacy-policy/81615516"
+                    class="iubenda-white iubenda-noiframe iubenda-embed iub-legal-only"
+                    style="font-size: 0.65rem; color: var(--dim); text-decoration: none; transition: 0.3s;">Privacy</a>
+                <a href="#"
+                    style="font-size: 0.65rem; color: var(--dim); text-decoration: none; transition: 0.3s;">Terms</a>
+            </div>
+        </div>
     </div>
 
     <main class="content">
@@ -80,8 +126,8 @@
 
                 <div class="card glass">
                     <h3><i data-lucide="zap"></i> Massimali AI</h3>
-                    <div class="metric">Squat: <span id="val-squat">0</span> kg</div>
-                    <div class="metric">Deadlift: <span id="val-dead">0</span> kg</div>
+                    <div class="metric">Squat: <span id="val-squat" class="skeleton-loader">--</span> kg</div>
+                    <div class="metric">Deadlift: <span id="val-dead" class="skeleton-loader">--</span> kg</div>
                     <p style="font-size: 0.75rem; color: var(--primary); margin-top: 10px;">
                         <i data-lucide="info" style="width:12px"></i> I massimali si aggiornano automaticamente in base
                         alle tue performance in sala.
@@ -89,43 +135,101 @@
                 </div>
 
                 <div class="card glass">
-                    <h3><i data-lucide="heart-pulse"></i> Salute & Bio</h3>
-                    <p id="health-status">Analisi in corso...</p>
-                    <div id="ai-diet-tip" class="ai-box">Consiglio AI caricato...</div>
+                    <h3><i data-lucide="heart-pulse"></i> Bio-Status</h3>
+                    <div class="bio-container" style="margin-top: 15px;">
+                        <div class="bio-row">
+                            <span
+                                style="font-size: 0.7rem; color: var(--dim); text-transform: uppercase;">Recupero</span>
+                            <div class="progress-bar-bg"
+                                style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 5px;">
+                                <div class="progress-bar-fill"
+                                    style="width: 85%; height: 100%; background: var(--primary); box-shadow: 0 0 10px var(--primary); border-radius: 2px;">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bio-row" style="margin-top: 10px;">
+                            <span style="font-size: 0.7rem; color: var(--dim); text-transform: uppercase;">Sforzo
+                                AI</span>
+                            <div class="progress-bar-bg"
+                                style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 5px;">
+                                <div class="progress-bar-fill"
+                                    style="width: 40%; height: 100%; background: var(--primary); box-shadow: 0 0 10px var(--primary); border-radius: 2px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="ai-diet-tip" class="ai-box"
+                        style="margin-top: 15px; font-size: 0.75rem; border-left: 2px solid var(--primary); padding-left: 10px; color: white;">
+                        Consiglio: Idratazione post-squat necessaria.
+                    </div>
                 </div>
             </div>
 
             <div class="card glass" style="margin-top: 20px;">
                 <h3><i data-lucide="trending-up"></i> Performance Chart</h3>
                 <canvas id="performanceChart" style="max-height: 200px;"></canvas>
+                <button class="btn-outline" onclick="generatePDFReport()" style="margin-top: 15px; width: 100%;">
+                    <i data-lucide="download"></i> SCARICA REPORT PROGRESSI (PDF)
+                </button>
             </div>
         </section>
 
         <section id="view-coach" class="view">
-            <h1>AI Strategy Control</h1>
+            <div class="header-flex">
+                <h1><i data-lucide="cpu"></i> AI Strategy Control</h1>
+                <div class="status-badge gold">Proprietario / Master Coach</div>
+            </div>
+
             <div class="grid-2">
                 <div class="card glass">
-                    <h3>Generatore Sessione Intelligente</h3>
-                    <textarea id="ai-prompt" placeholder="Descrivi l'allenamento al Coach AI..."></textarea>
-                    <div class="btn-group">
-                        <button class="btn-main" onclick="pushWorkout('Forza')">FORZA</button>
-                        <button class="btn-main" onclick="pushWorkout('WOD')">WOD</button>
-                        <button class="btn-main" onclick="pushWorkout('Endurance')">ENDURANCE</button>
-                        <button class="btn-main" onclick="pushWorkout('Recovery')">RECOVERY</button>
+                    <h3><i data-lucide="settings-2"></i> Configura Sessione</h3>
+
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Difficoltà</label>
+                            <select id="ai-level">
+                                <option value="beginner">Principiante</option>
+                                <option value="intermediate" selected>Intermedio</option>
+                                <option value="advanced">Avanzato / Elite</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Durata (min)</label>
+                            <input type="number" id="ai-duration" value="60">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Attrezzatura Disponibile</label>
+                        <div class="checkbox-grid">
+                            <label><input type="checkbox" value="bilancieri" checked> Bilancieri</label>
+                            <label><input type="checkbox" value="manubri" checked> Manubri</label>
+                            <label><input type="checkbox" value="macchine"> Macchine</label>
+                            <label><input type="checkbox" value="corpo-libero"> Corpo Libero</label>
+                        </div>
+                    </div>
+
+                    <label>Note Specifiche (es. Focus glutei, No salti)</label>
+                    <textarea id="ai-prompt" placeholder="Inserisci obiettivi specifici dell'atleta..."></textarea>
+
+                    <div class="btn-grid-coach">
+                        <button class="btn-main" onclick="generateWorkout('Hypertrophy')">IPERTROFIA</button>
+                        <button class="btn-main" onclick="generateWorkout('Strength')">FORZA</button>
+                        <button class="btn-main" onclick="generateWorkout('FatLoss')">DIMAGRIMENTO</button>
+                        <button class="btn-main" onclick="generateWorkout('Mobility')">MOBILITÀ</button>
                     </div>
                 </div>
+
                 <div class="card glass">
-                    <h3>Atleti in Sessione</h3>
-                    <div id="live-checkin-list"></div>
-                    <hr style="margin: 20px 0; border: 0; border-top: 1px solid rgba(255,255,255,0.1);">
-                    <div style="text-align: center;">
-                        <button class="btn-main" onclick="resetGymSession()"
-                            style="background: #ff4444; color: white; width: 100%;">
-                            RESET TOTALE SESSIONE
-                        </button>
-                        <p style="font-size: 0.7rem; color: #888; margin-top: 10px;">
-                            (Svuota la TV, ferma il timer e disconnette gli atleti)
-                        </p>
+                    <h3><i data-lucide="eye"></i> Preview Sessione AI</h3>
+                    <div id="ai-output-container" class="workout-preview">
+                        <p class="dim-text">Configura i parametri e clicca su un obiettivo per generare la scheda...</p>
+                    </div>
+                    <div class="coach-actions" id="coach-actions" style="display:none;">
+                        <button class="btn-outline" onclick="pushToTV()"><i data-lucide="monitor"></i> Invia alla
+                            TV</button>
+                        <button class="btn-outline" onclick="printWorkout()"><i data-lucide="printer"></i> Stampa
+                            PDF</button>
                     </div>
                 </div>
             </div>
@@ -142,7 +246,42 @@
         </section>
 
     </main>
+    <div id="workout-session-overlay" class="workout-overlay">
+        <div class="workout-header">
+            <button onclick="closeWorkoutSession()" class="btn-close">×</button>
+            <h2 id="current-ex-name">Nome Esercizio</h2>
+        </div>
 
+        <div class="exercise-focus-card">
+            <div class="ex-stats">
+                <div class="stat-box">
+                    <span class="label">SERIE</span>
+                    <span id="current-ex-sets" class="value">4</span>
+                </div>
+                <div class="stat-box">
+                    <span class="label">REPS</span>
+                    <span id="current-ex-reps" class="value">10</span>
+                </div>
+                <div class="stat-box">
+                    <span class="label">CARICO</span>
+                    <span id="current-ex-weight" class="value">--</span>
+                </div>
+            </div>
+
+            <div id="timer-container" class="timer-section" style="display: none;">
+                <div class="timer-circle">
+                    <span id="timer-display">60</span>
+                </div>
+                <p>Recupero in corso...</p>
+            </div>
+
+            <div class="action-buttons">
+                <button id="btn-next-set" onclick="handleSetComplete()" class="btn-main">SERIE COMPLETATA</button>
+                <button id="btn-skip-rest" onclick="skipRest()" class="btn-sec" style="display: none;">SALTA
+                    RECUPERO</button>
+            </div>
+        </div>
+    </div>
     <script src="app.js"></script>
     <script>lucide.createIcons();</script>
 </body>
