@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Olympus AI - Smart Gym System</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
@@ -137,6 +138,7 @@
                 <div class="card glass">
                     <h3><i data-lucide="heart-pulse"></i> Bio-Status</h3>
                     <div class="bio-container" style="margin-top: 15px;">
+                        <p id="health-status" class="dim-text">Status: OK</p>
                         <div class="bio-row">
                             <span
                                 style="font-size: 0.7rem; color: var(--dim); text-transform: uppercase;">Recupero</span>
