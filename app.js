@@ -311,6 +311,7 @@ window.onload = () => {
 };
 
 window.acceptLegal = () => {
+    console.log("AcceptLegal called"); // Debug in console
     localStorage.setItem('olympus_legal_accepted', 'true');
     document.getElementById('legal-modal').style.display = 'none';
 };
